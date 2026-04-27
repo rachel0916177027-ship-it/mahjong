@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>阿哲麻將館最後的華爾茲</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg0:#0D1B2A;--bg1:#1B263B;--bg2:#415A77;--acc:#778DA9;--light:#E0E1DD;--gold:#FFD700;--silver:#C0C0C0;--bronze:#CD7F32;}
+body{background:var(--bg0);color:var(--light);font-family:'Segoe UI',sans-serif;min-height:100vh;padding:0 0 80px}
+h1{text-align:center;font-size:16px;font-weight:700;padding:16px 12px 4px;color:var(--light);letter-spacing:1px}
+h1 span{display:block;font-size:11px;color:var(--acc);font-weight:400;margin-top:3px;letter-spacing:2px}
+.tabs{display:flex;background:var(--bg1);border-bottom:1px solid var(--bg2)}
+.tab{flex:1;padding:10px 4px;text-align:center;font-size:12px;cursor:pointer;color:var(--acc);border:none;background:none;transition:.2s}
+.tab.active{color:var(--light);border-bottom:2px solid var(--acc);font-weight:600}
+.sync-bar{display:flex;gap:8px;padding:7px 12px;background:var(--bg1);border-bottom:1px solid var(--bg2);align-items:center;font-size:11px}
+#sync-status{flex:1;color:#2ecc71}
+.section{display:none;padding:12px}.section.active{display:block}
+.card{background:var(--bg1);border-radius:10px;padding:12px;margin-bottom:10px;border:1px solid var(--bg2)}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.card-title{font-size:13px;font-weight:600;color:var(--light)}
+.btn{display:inline-flex;align-items:center;gap:4px;padding:6px 12px;border-radius:6px;border:1px solid var(--bg2);background:var(--bg2);color:var(--light);font-size:12px;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--acc);border-color:var(--acc)}
+.btn-danger{background:transparent;border-color:#c0392b;color:#e74c3c}
+.btn-danger:hover{background:#c0392b;color:var(--light)}
+.btn-sm{padding:4px 8px;font-size:11px}
+.btn-primary{background:var(--acc);border-color:var(--acc);color:var(--bg0);font-weight:600}
+input,select{background:var(--bg0);border:1px solid var(--bg2);color:var(--light);border-radius:6px;padding:7px 10px;font-size:13px;width:100%;outline:none}
+input::placeholder{color:var(--acc)}
+input:focus,select:focus{border-color:var(--acc)}
+select option{background:var(--bg1);color:var(--light)}
+label{font-size:12px;color:var(--acc);display:block;margin-bottom:4px}
+.stat-banner{background:linear-gradient(135deg,var(--bg2),var(--bg1));border-radius:10px;padding:12px 16px;margin-bottom:12px;text-align:center;border:1px solid var(--acc)}
+.stat-banner .val{font-size:22px;font-weight:700;color:var(--gold)}
+.stat-banner .lbl{font-size:11px;color:var(--acc);margin-top:2px}
+.chip{display:inline-flex;align-items:center;gap:4px;background:var(--bg2);border-radius:20px;padding:3px 10px 3px 12px;font-size:12px;color:var(--light);margin:3px}
+.chip .rm{background:none;border:none;color:var(--acc);cursor:pointer;font-size:14px;padding:0;line-height:1}
+.chip .rm:hover{color:#e74c3c}
+.pos{color:#2ecc71;font-weight:600}.neg{color:#e74c3c;font-weight:600}.zero{color:var(--acc)}
+.record-row{background:var(--bg0);border-radius:8px;padding:10px;margin-bottom:8px;border:1px solid var(--bg1)}
+.record-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px;font-size:11px}
+.record-meta span{background:var(--bg2);border-radius:4px;padding:2px 7px;color:var(--light)}
+.record-players{display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:12px}
+.record-player{display:flex;justify-content:space-between;align-items:center;padding:3px 6px;background:var(--bg1);border-radius:5px}
+.record-actions{display:flex;gap:6px;margin-top:8px;justify-content:flex-end}
+.rank-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg0);border-radius:8px;margin-bottom:6px;cursor:pointer;transition:.15s;border:1px solid transparent}
+.rank-row:hover{border-color:var(--bg2);background:var(--bg1)}
+.rank-icon{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0}
+.rank-1{background:var(--gold);color:#000}.rank-2{background:var(--silver);color:#000}.rank-3{background:var(--bronze);color:#000}.rank-n{background:var(--bg2);color:var(--light)}
+.rank-name{flex:1;font-size:13px;font-weight:600}
+.rank-stats{text-align:right;font-size:11px;color:var(--acc)}
+.rank-amount{font-size:14px;font-weight:700}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg1);border-radius:12px;width:100%;max-width:400px;padding:16px;border:1px solid var(--bg2);margin:auto}
+.modal-title{font-size:14px;font-weight:600;margin-bottom:14px;color:var(--light)}
+.modal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+.chart-wrap{position:relative;width:100%;margin-top:10px}
+.alert{background:#7b1c1c;border:1px solid #e74c3c;color:#fca5a5;border-radius:6px;padding:8px 12px;font-size:12px;margin-top:8px;display:none}
+.date-range{display:flex;gap:8px;margin-bottom:10px}.date-range>div{flex:1}
+.player-grid{display:grid;gap:6px}
+.player-row-input{display:flex;gap:6px;align-items:center}
+.player-row-input input{flex:1}.player-row-input .money-input{width:90px;flex:none}
+.total-indicator{text-align:right;font-size:12px;margin-top:6px}
+.total-ok{color:#2ecc71}.total-err{color:#e74c3c}
+.player-stat-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bg2);font-size:12px}
+/* Setup */
+#setup-overlay{position:fixed;inset:0;background:rgba(13,27,42,.98);z-index:200;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding:24px;overflow-y:auto}
+#setup-overlay.hidden{display:none}
+#setup-overlay h2{font-size:17px;margin-bottom:12px;margin-top:12px}
+.setup-step{background:var(--bg1);border-radius:10px;padding:14px;width:100%;max-width:420px;margin-bottom:10px;border:1px solid var(--bg2)}
+.setup-step .num{display:inline-block;background:var(--acc);color:var(--bg0);border-radius:50%;width:22px;height:22px;text-align:center;line-height:22px;font-size:12px;font-weight:700;margin-right:6px}
+.setup-step p{font-size:12px;color:var(--acc);margin-top:8px;line-height:1.8}
+.setup-step b{color:var(--light)}
+.setup-step code{background:var(--bg0);padding:2px 6px;border-radius:4px;font-family:monospace;font-size:11px;color:#2ecc71}
+#api-url-input{width:100%;max-width:420px;margin-bottom:10px;font-size:12px}
+.setup-btn{width:100%;max-width:420px;justify-content:center;font-size:13px;padding:10px}
+</style>
+</head>
+<body>
+
+<!-- 設定引導 -->
+<div id="setup-overlay">
+  <h2>🀄 設定雲端同步</h2>
+
+  <div class="setup-step">
+    <span class="num">1</span><b>建立 Google 試算表</b>
+    <p>前往 <b>sheets.google.com</b>，新增空白試算表，隨便命名（例如：麻將紀錄）</p>
+  </div>
+
+  <div class="setup-step">
+    <span class="num">2</span><b>開啟 Apps Script</b>
+    <p>在試算表上方選單點：<b>擴充功能 → Apps Script</b></p>
+  </div>
+
+  <div class="setup-step">
+    <span class="num">3</span><b>貼上程式碼</b>
+    <p>把 <code>apps-script.gs</code> 裡的程式碼全部複製，貼到 Apps Script 編輯器，按儲存（Ctrl+S）</p>
+  </div>
+
+  <div class="setup-step">
+    <span class="num">4</span><b>部署為網路應用程式</b>
+    <p>點右上角 <b>「部署 → 新增部署作業」</b><br>
+    類型選 <b>「網路應用程式」</b><br>
+    執行身分：<b>「我」</b><br>
+    存取權：<b>「所有人」</b><br>
+    點部署 → 授權 → 複製「網路應用程式網址」</p>
+  </div>
+
+  <div class="setup-step">
+    <span class="num">5</span><b>貼上網址</b>
+    <p>把剛才複製的網址貼到下方</p>
+  </div>
+
+  <input type="url" id="api-url-input" placeholder="https://script.google.com/macros/s/…/exec">
+  <button class="btn btn-primary setup-btn" onclick="applyApiUrl()">✅ 套用並連線</button>
+  <div style="font-size:11px;color:var(--acc);margin-top:10px;text-align:center">設定只需做一次，之後所有裝置開啟即可自動同步</div>
+</div>
+
+<h1>阿哲麻將館最後的華爾茲<span>🀄 MAHJONG RECORDS</span></h1>
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('ranking')">排行榜</button>
+  <button class="tab" onclick="switchTab('records')">戰績</button>
+  <button class="tab" onclick="switchTab('players')">參加者</button>
+</div>
+<div class="sync-bar">
+  <span id="sync-status">🔄 連線中…</span>
+  <button class="btn btn-sm" onclick="loadAll()">🔃 重新整理</button>
+  <button class="btn btn-sm" onclick="exportData()">📤 備份</button>
+  <button class="btn btn-sm" onclick="document.getElementById('import-file').click()">📥 還原</button>
+  <input type="file" id="import-file" accept=".json" style="display:none" onchange="importData(event)">
+</div>
+
+<!-- RANKING TAB -->
+<div id="tab-ranking" class="section active">
+  <div class="card">
+    <div class="card-title" style="margin-bottom:10px">📈 所有人走勢圖</div>
+    <div class="date-range">
+      <div><label>開始日期</label><input type="date" id="range-start" onchange="renderRankingChart()"></div>
+      <div><label>結束日期</label><input type="date" id="range-end" onchange="renderRankingChart()"></div>
+    </div>
+    <div class="chart-wrap" style="height:220px"><canvas id="trend-all"></canvas></div>
+  </div>
+  <div id="ranking-list"></div>
+</div>
+
+<!-- RECORDS TAB -->
+<div id="tab-records" class="section">
+  <div class="stat-banner">
+    <div class="val" id="total-dongqian">$0</div>
+    <div class="lbl">📦 東錢總收入</div>
+  </div>
+  <button class="btn btn-primary" style="width:100%;margin-bottom:12px;justify-content:center" onclick="openAddRecord()">＋ 新增戰績</button>
+  <div id="records-list"></div>
+</div>
+
+<!-- PLAYERS TAB -->
+<div id="tab-players" class="section">
+  <div class="card">
+    <div class="card-header"><div class="card-title">參加者名單</div></div>
+    <div id="player-chips"></div>
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <input type="text" id="new-player-input" placeholder="輸入玩家名稱">
+      <button class="btn btn-primary" onclick="addPlayer()">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit Record Modal -->
+<div class="modal-overlay" id="record-modal">
+  <div class="modal">
+    <div class="modal-title" id="modal-title">新增戰績</div>
+    <div style="display:grid;gap:10px">
+      <div>
+        <label>日期</label><input type="date" id="r-date" onchange="updateWeekday()">
+        <div id="r-weekday" style="font-size:11px;color:var(--acc);margin-top:3px"></div>
+      </div>
+      <div>
+        <label>將數</label>
+        <select id="r-fan">
+          <option value="1">1將</option><option value="2">2將</option><option value="3" selected>3將</option>
+          <option value="4">4將</option><option value="5">5將</option>
+        </select>
+      </div>
+      <div><label>東錢金額</label><input type="number" id="r-dongqian" placeholder="東錢" oninput="checkTotal()"></div>
+      <div>
+        <label>參加者 &amp; 輸贏金額</label>
+        <div id="r-players-rows" class="player-grid"></div>
+        <div style="display:flex;gap:8px;margin-top:6px">
+          <select id="r-add-player-sel" style="flex:1"></select>
+          <button class="btn btn-sm" onclick="addPlayerToRecord()">加入</button>
+        </div>
+        <div class="total-indicator"><span id="total-label" class="zero">合計：0</span></div>
+        <div class="alert" id="total-alert">⚠️ 輸贏金額與東錢總和不等於 0！</div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal('record-modal')">取消</button>
+      <button class="btn btn-primary" onclick="saveRecord()">儲存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player Detail Modal -->
+<div class="modal-overlay" id="player-modal">
+  <div class="modal">
+    <div class="modal-title" id="player-modal-name">玩家詳情</div>
+    <div class="chart-wrap" style="height:200px"><canvas id="player-trend-chart"></canvas></div>
+    <div id="player-record-list" style="margin-top:10px"></div>
+    <div class="modal-actions"><button class="btn" onclick="closeModal('player-modal')">關閉</button></div>
+  </div>
+</div>
+
+<script>
+const DAYS=['日','一','二','三','四','五','六'];
+const COLORS=['#778DA9','#2ecc71','#e74c3c','#f39c12','#9b59b6','#1abc9c','#e67e22','#3498db'];
+let players=[], records=[], nextId=52;
+let editingId=null, recordPlayerRows=[], playerTrendChart=null, allTrendChart=null;
+let API_URL = localStorage.getItem('mj_api_url') || '';
+
+// ── Setup ─────────────────────────────────────────────────
+if(API_URL){
+  document.getElementById('setup-overlay').classList.add('hidden');
+  loadAll();
+} else {
+  document.getElementById('setup-overlay').classList.remove('hidden');
+}
+
+function applyApiUrl(){
+  const url = document.getElementById('api-url-input').value.trim();
+  if(!url.startsWith('https://script.google.com')){
+    alert('網址格式不對，請確認是 Apps Script 的部署網址');return;
+  }
+  localStorage.setItem('mj_api_url', url);
+  API_URL = url;
+  showToast('✅ 設定成功，連線中…');
+  document.getElementById('setup-overlay').classList.add('hidden');
+  loadAll();
+}
+
+// ── API helpers ───────────────────────────────────────────
+function setSyncStatus(msg, ok=true){
+  const el=document.getElementById('sync-status');
+  if(el){el.textContent=msg; el.style.color=ok?'#2ecc71':'#e74c3c';}
+}
+
+async function api(action, payload={}){
+  setSyncStatus('⏫ 同步中…');
+  try{
+    const res = await fetch(API_URL, {
+      method:'POST',
+      body: JSON.stringify({action, ...payload})
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    setSyncStatus('☁️ 已同步 ✓');
+    return data;
+  }catch(e){
+    setSyncStatus('⚠️ 同步失敗 - 請檢查網路',false);
+    throw e;
+  }
+}
+
+async function loadAll(){
+  setSyncStatus('🔄 載入中…');
+  try{
+    const data = await api('getAll');
+    players = data.players || [];
+    records = data.records || [];
+    nextId  = data.nextId  || 52;
+    renderPlayers();
+    renderRecords();
+    renderRanking();
+  }catch(e){ console.error(e); }
+}
+
+// ── Players ───────────────────────────────────────────────
+function renderPlayers(){
+  const c=document.getElementById('player-chips');if(!c)return;
+  c.innerHTML=players.map(p=>
+    `<span class="chip">${p}<button class="rm" onclick="removePlayer('${p}')">×</button></span>`
+  ).join('');
+}
+
+async function addPlayer(){
+  const inp=document.getElementById('new-player-input'), name=inp.value.trim();
+  if(!name||players.includes(name))return;
+  players.push(name); inp.value='';
+  renderPlayers();
+  try{ await api('savePlayers',{players}); showToast('✅ 已新增：'+name); }
+  catch(e){ players.pop(); renderPlayers(); }
+}
+
+async function removePlayer(name){
+  if(!confirm(`確定刪除「${name}」？`))return;
+  players=players.filter(p=>p!==name); renderPlayers();
+  try{ await api('savePlayers',{players}); }
+  catch(e){ players.push(name); renderPlayers(); }
+}
+
+// ── Records ───────────────────────────────────────────────
+function fmtMoney(n){return(n>=0?'+$':'-$')+Math.abs(n).toLocaleString();}
+
+function renderRecords(){
+  const total=records.reduce((s,r)=>s+(r.dongqian||0),0);
+  const el=document.getElementById('total-dongqian');if(el)el.textContent='$'+total.toLocaleString();
+  const c=document.getElementById('records-list');if(!c)return;
+  if(!records.length){c.innerHTML='<div style="text-align:center;color:var(--acc);padding:20px">還沒有戰績記錄</div>';return;}
+  c.innerHTML=[...records].sort((a,b)=>b.date.localeCompare(a.date)).map(r=>{
+    const wd=DAYS[new Date(r.date).getDay()];
+    const pHtml=(r.players||[]).map(p=>
+      `<div class="record-player"><span>${p.name}</span><span class="${p.amount>0?'pos':p.amount<0?'neg':'zero'}">${fmtMoney(p.amount)}</span></div>`
+    ).join('');
+    return `<div class="record-row">
+      <div class="record-meta"><span>📅 ${r.date.replace(/-/g,'/')} (${wd})</span><span>🀄 ${r.fan}將</span><span>💰 東錢 $${r.dongqian}</span></div>
+      <div class="record-players">${pHtml}</div>
+      <div class="record-actions">
+        <button class="btn btn-sm" onclick="editRecord(${r.id})">✏️ 修改</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteRecord(${r.id})">🗑 刪除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openAddRecord(){
+  editingId=null;
+  document.getElementById('modal-title').textContent='新增戰績';
+  document.getElementById('r-date').value=new Date().toISOString().slice(0,10);
+  document.getElementById('r-fan').value='3';
+  document.getElementById('r-dongqian').value='';
+  document.getElementById('r-weekday').textContent='';
+  document.getElementById('total-alert').style.display='none';
+  recordPlayerRows=[];renderRecordPlayerRows();populatePlayerSel();checkTotal();updateWeekday();
+  document.getElementById('record-modal').classList.add('show');
+}
+
+function editRecord(id){
+  const r=records.find(x=>x.id===id);if(!r)return;
+  editingId=id;
+  document.getElementById('modal-title').textContent='修改戰績';
+  document.getElementById('r-date').value=r.date;
+  document.getElementById('r-fan').value=r.fan;
+  document.getElementById('r-dongqian').value=r.dongqian;
+  recordPlayerRows=[...r.players.map(p=>({...p}))];
+  renderRecordPlayerRows();populatePlayerSel();checkTotal();updateWeekday();
+  document.getElementById('total-alert').style.display='none';
+  document.getElementById('record-modal').classList.add('show');
+}
+
+async function deleteRecord(id){
+  if(!confirm('確定刪除這筆戰績？'))return;
+  records=records.filter(r=>r.id!==id); renderRecords();
+  try{ await api('saveRecords',{records,nextId}); showToast('🗑 已刪除'); }
+  catch(e){ await loadAll(); }
+}
+
+async function saveRecord(){
+  const date=document.getElementById('r-date').value;
+  const fan=parseInt(document.getElementById('r-fan').value);
+  const dongqian=parseInt(document.getElementById('r-dongqian').value)||0;
+  if(!date){alert('請選擇日期');return;}
+  if(!recordPlayerRows.length){alert('請加入至少一位參加者');return;}
+  if(dongqian+recordPlayerRows.reduce((s,p)=>s+p.amount,0)!==0){
+    document.getElementById('total-alert').style.display='block';return;
+  }
+  if(editingId){
+    Object.assign(records.find(x=>x.id===editingId),{date,fan,dongqian,players:[...recordPlayerRows]});
+  } else {
+    records.push({id:nextId,date,fan,dongqian,players:[...recordPlayerRows]});
+    nextId++;
+  }
+  closeModal('record-modal');
+  renderRecords();
+  try{ await api('saveRecords',{records,nextId}); showToast('✅ 已儲存並同步'); }
+  catch(e){ await loadAll(); }
+}
+
+function populatePlayerSel(){
+  const sel=document.getElementById('r-add-player-sel');if(!sel)return;
+  const used=recordPlayerRows.map(r=>r.name);
+  sel.innerHTML=players.filter(p=>!used.includes(p)).map(p=>`<option value="${p}">${p}</option>`).join('');
+}
+function addPlayerToRecord(){
+  const sel=document.getElementById('r-add-player-sel'),name=sel.value;if(!name)return;
+  recordPlayerRows.push({name,amount:0});renderRecordPlayerRows();populatePlayerSel();checkTotal();
+}
+function renderRecordPlayerRows(){
+  document.getElementById('r-players-rows').innerHTML=recordPlayerRows.map((p,i)=>`
+    <div class="player-row-input">
+      <span style="font-size:12px;min-width:40px;color:var(--light)">${p.name}</span>
+      <input class="money-input" type="number" value="${p.amount}" placeholder="金額"
+        oninput="recordPlayerRows[${i}].amount=parseInt(this.value)||0;checkTotal()">
+      <button class="btn btn-sm btn-danger" onclick="removeRecordPlayer(${i})">×</button>
+    </div>`).join('');
+}
+function removeRecordPlayer(i){recordPlayerRows.splice(i,1);renderRecordPlayerRows();populatePlayerSel();checkTotal();}
+function checkTotal(){
+  const dq=parseInt(document.getElementById('r-dongqian').value)||0;
+  const sum=dq+recordPlayerRows.reduce((s,p)=>s+p.amount,0);
+  const lbl=document.getElementById('total-label');
+  lbl.textContent='合計：'+sum; lbl.className=sum===0?'total-ok':'total-err';
+  document.getElementById('total-alert').style.display=sum!==0&&(dq||recordPlayerRows.length)?'block':'none';
+}
+function updateWeekday(){
+  const d=document.getElementById('r-date').value;if(!d)return;
+  document.getElementById('r-weekday').textContent='（星期'+DAYS[new Date(d).getDay()]+'）';
+}
+function closeModal(id){document.getElementById(id).classList.remove('show');}
+
+// ── Ranking ───────────────────────────────────────────────
+function getStats(){
+  const map={};
+  records.forEach(r=>(r.players||[]).forEach(p=>{
+    if(!map[p.name])map[p.name]={name:p.name,games:0,fans:0,total:0};
+    map[p.name].games++;map[p.name].fans+=r.fan;map[p.name].total+=p.amount;
+  }));
+  return Object.values(map).sort((a,b)=>b.total-a.total);
+}
+
+function renderRanking(){
+  renderRankingChart();
+  const list=document.getElementById('ranking-list');if(!list)return;
+  list.innerHTML=getStats().map((s,i)=>{
+    const cls=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-n';
+    const icon=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    return `<div class="rank-row" onclick="openPlayerDetail('${s.name}')">
+      <div class="rank-icon ${cls}">${icon}</div>
+      <div class="rank-name">${s.name}</div>
+      <div class="rank-stats"><div>${s.games}場 / ${s.fans}將</div>
+        <div class="rank-amount ${s.total>0?'pos':s.total<0?'neg':'zero'}">${fmtMoney(s.total)}</div>
+      </div></div>`;
+  }).join('');
+}
+
+function getFiltered(){
+  const s=document.getElementById('range-start').value,e=document.getElementById('range-end').value;
+  return records.filter(r=>(!s||r.date>=s)&&(!e||r.date<=e)).sort((a,b)=>a.date.localeCompare(b.date));
+}
+
+function renderRankingChart(){
+  const filtered=getFiltered();
+  const names=[...new Set(filtered.flatMap(r=>(r.players||[]).map(p=>p.name)))];
+  const labels=filtered.map(r=>r.date.slice(5)+'('+DAYS[new Date(r.date).getDay()]+')');
+  const datasets=names.map((name,ci)=>{
+    let cum=0;
+    return{label:name,
+      data:filtered.map(r=>{const p=(r.players||[]).find(x=>x.name===name);if(p)cum+=p.amount;return cum;}),
+      borderColor:COLORS[ci%COLORS.length],backgroundColor:'transparent',tension:.3,pointRadius:3,borderWidth:2};
+  });
+  const ctx=document.getElementById('trend-all');if(!ctx)return;
+  if(allTrendChart)allTrendChart.destroy();
+  allTrendChart=new Chart(ctx,{type:'line',data:{labels,datasets},options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{labels:{color:'#E0E1DD',boxWidth:10,font:{size:10}}}},
+    scales:{x:{ticks:{color:'#778DA9',font:{size:9}}},
+      y:{ticks:{color:'#778DA9',font:{size:9},callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(65,90,119,.3)'}}}
+  }});
+}
+
+function openPlayerDetail(name){
+  document.getElementById('player-modal-name').textContent='📊 '+name;
+  const pr=records.filter(r=>(r.players||[]).some(p=>p.name===name)).sort((a,b)=>a.date.localeCompare(b.date));
+  let cum=0;const labels=[],data=[];
+  const rows=pr.map(r=>{
+    const p=(r.players||[]).find(x=>x.name===name),amt=p?p.amount:0;cum+=amt;
+    labels.push(r.date.slice(5)+'('+DAYS[new Date(r.date).getDay()]+')');data.push(cum);
+    return `<div class="player-stat-row"><span>${r.date.replace(/-/g,'/')} ${r.fan}將</span><span class="${amt>0?'pos':amt<0?'neg':'zero'}">${fmtMoney(amt)}</span></div>`;
+  });
+  document.getElementById('player-record-list').innerHTML=rows.join('')||'<div style="color:var(--acc);font-size:12px">尚無記錄</div>';
+  const ctx=document.getElementById('player-trend-chart');
+  if(playerTrendChart)playerTrendChart.destroy();
+  playerTrendChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'累計',data,
+    borderColor:'#778DA9',backgroundColor:'rgba(119,141,169,.15)',fill:true,tension:.3,pointRadius:4,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#778DA9',font:{size:9}}},y:{ticks:{color:'#778DA9',font:{size:9},callback:v=>'$'+v.toLocaleString()},grid:{color:'rgba(65,90,119,.3)'}}}}});
+  document.getElementById('player-modal').classList.add('show');
+}
+
+// ── Export / Import ───────────────────────────────────────
+function exportData(){
+  const blob=new Blob([JSON.stringify({players,records,nextId,exportedAt:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`麻將紀錄_${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+}
+
+async function importData(event){
+  const file=event.target.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      const payload=JSON.parse(e.target.result);
+      if(!payload.players||!payload.records)throw new Error();
+      if(!confirm(`確定匯入並覆蓋雲端所有資料（共 ${payload.records.length} 筆）？`)){event.target.value='';return;}
+      players=payload.players; records=payload.records;
+      nextId=payload.nextId||(Math.max(0,...records.map(r=>r.id))+1);
+      renderPlayers(); renderRecords(); renderRanking();
+      await api('saveAll',{players,records,nextId});
+      showToast('✅ 匯入成功，雲端已更新！');
+    }catch(e){alert('匯入失敗：格式不正確');}
+    event.target.value='';
+  };
+  reader.readAsText(file);
+}
+
+// ── Tab switch ────────────────────────────────────────────
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['ranking','records','players'][i]===t));
+  document.querySelectorAll('.section').forEach(el=>el.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  if(t==='records')renderRecords();
+  if(t==='ranking')renderRanking();
+  if(t==='players')renderPlayers();
+}
+
+// ── Toast ─────────────────────────────────────────────────
+function showToast(msg){
+  let t=document.getElementById('toast');
+  if(!t){t=document.createElement('div');t.id='toast';
+    t.style.cssText='position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--bg2);color:var(--light);padding:10px 20px;border-radius:20px;font-size:13px;z-index:999;border:1px solid var(--acc);transition:opacity .4s;pointer-events:none';
+    document.body.appendChild(t);}
+  t.textContent=msg;t.style.opacity='1';
+  clearTimeout(t._timer);t._timer=setTimeout(()=>{t.style.opacity='0';},2500);
+}
+</script>
+</body>
+</html>
