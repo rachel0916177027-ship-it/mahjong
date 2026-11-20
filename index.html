@@ -177,6 +177,18 @@ th{color:var(--mute);font-weight:400;font-size:12.5px;border-top:0}
 #toast{position:fixed;left:50%;bottom:calc(150px + var(--safeB));transform:translateX(-50%);z-index:95;background:#0D1B2A;border:1px solid var(--accent2);color:var(--text);padding:10px 16px;border-radius:12px;font-size:14.5px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:88vw;text-align:center}
 #toast.on{opacity:1}
 #toast.err{border-color:var(--loss)}
+.card[id]{scroll-margin-top:76px}
+.mxw{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+table.mx{width:auto;border-collapse:separate;border-spacing:2px;font-size:12px}
+.mx th,.mx td{padding:0;border:0;text-align:center}
+.mx .mxh{writing-mode:vertical-rl;padding:4px 2px;color:var(--mute);font-weight:400;font-size:12px;vertical-align:bottom}
+.mx .mxr{position:sticky;left:0;background:var(--card);text-align:left;padding:0 8px 0 0;white-space:nowrap;font-size:12.5px;z-index:1}
+.mxc{display:flex;align-items:center;justify-content:center;width:34px;height:30px;border-radius:6px;font-size:11.5px;color:#fff;font-variant-numeric:tabular-nums}
+.mxself{background:#13203A}
+.mxd{color:var(--dim)}
+.rowx{display:flex;align-items:center;gap:8px;padding:9px 2px;border-top:1px solid var(--line)}
+.pbar{height:6px;border-radius:3px;background:#13203A;overflow:hidden;margin-top:6px}
+.pbar i{display:block;height:100%;background:var(--accent2)}
 </style>
 </head>
 <body>
@@ -189,6 +201,7 @@ th{color:var(--mute);font-weight:400;font-size:12.5px;border-top:0}
 <main>
   <section class="pane on" id="p-rank"></section>
   <section class="pane" id="p-rec"></section>
+  <section class="pane" id="p-stat"></section>
 </main>
 
 <button id="fab" aria-label="新增戰績">＋</button>
@@ -196,6 +209,7 @@ th{color:var(--mute);font-weight:400;font-size:12.5px;border-top:0}
 <nav><div class="in">
   <button data-tab="rank" class="on"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>排行榜</button>
   <button data-tab="rec"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>戰績</button>
+  <button data-tab="stat"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>統計</button>
 </div></nav>
 
 <!-- 個人詳情 -->
@@ -571,11 +585,140 @@ function renderRec(){
   $('#p-rec').innerHTML=h;
 }
 
+/* ───────── 統計 ───────── */
+var MX={};
+function statRange(n){
+  return '<div class="card"><h2>統計期間<span>'+n+' 場</span></h2><div class="chips">'+
+    [['all','全部'],['year','今年'],['90','近 90 天'],['30','近 30 天']].map(function(x){return '<button class="chip'+(S.range.preset===x[0]?' on':'')+'" data-preset="'+x[0]+'">'+x[1]+'</button>'}).join('')+
+    '</div><div class="daterow"><input type="date" id="rfrom" value="'+S.range.from+'"><span>至</span><input type="date" id="rto" value="'+S.range.to+'"></div></div>';
+}
+function secCard(id,title,sub,body){return '<div class="card" id="'+id+'"><h2>'+title+(sub?'<span>'+sub+'</span>':'')+'</h2>'+body+'</div>'}
+function renderStat(){
+  var recs=inRange(),m=calc(recs);
+  var h=statRange(recs.length);
+  if(!recs.length){$('#p-stat').innerHTML=h+'<div class="empty">這段期間沒有戰績</div>';return}
+  h+='<div class="chips" style="margin-bottom:14px">'+[['s1','對戰總表'],['s2','月度冠軍'],['s3','同桌組合'],['s4','紀錄榜'],['s5','穩定度'],['s6','下一場預測']].map(function(x){return '<button class="chip" data-jump="'+x[0]+'">'+x[1]+'</button>'}).join('')+'</div>';
+  h+=statMatrix(recs,m)+statMonthly(recs)+statPairs(recs,m)+statRecords(recs,m)+statStable(m)+statPredict(recs,m);
+  $('#p-stat').innerHTML=h;
+}
+function statMatrix(recs,m){
+  var names=ranked(m).filter(function(s){return s.games>=8}).sort(function(a,b){return b.games-a.games}).slice(0,14).map(function(s){return s.name});
+  if(names.length<2)return secCard('s1','對戰總表','','<div class="empty">場次 8 場以上的人不到 2 位</div>');
+  MX={};
+  recs.forEach(function(r){r.players.forEach(function(a){r.players.forEach(function(b){
+    if(a===b)return;var k=a.name+'\u0001'+b.name;var o=MX[k]||(MX[k]={n:0,w:0,l:0});
+    o.n++;if(a.amount>b.amount)o.w++;else if(a.amount<b.amount)o.l++;})})});
+  var t='<div class="mxw"><table class="mx"><tr><th></th>'+names.map(function(n){return '<th class="mxh">'+esc(n)+'</th>'}).join('')+'</tr>';
+  names.forEach(function(a){
+    t+='<tr><td class="mxr">'+esc(a)+'</td>'+names.map(function(b){
+      if(a===b)return '<td><div class="mxc mxself"></div></td>';
+      var o=MX[a+'\u0001'+b];
+      if(!o||o.n<3)return '<td><div class="mxc"><span class="mxd">·</span></div></td>';
+      var p=Math.round(o.w*100/o.n);
+      var bg=p>=50?'rgba(127,209,163,'+(0.14+(p-50)/50*0.6).toFixed(2)+')':'rgba(242,155,155,'+(0.14+(50-p)/50*0.6).toFixed(2)+')';
+      return '<td><button class="mxc" style="background:'+bg+'" data-mxa="'+esc(a)+'" data-mxb="'+esc(b)+'">'+p+'</button></td>';
+    }).join('')+'</tr>';
+  });
+  t+='</table></div><div class="note">數字＝左邊那位對上方那位的勝率（%），綠色＝贏比較多、紅色＝輸比較多。只列場次 8 場以上的前 14 位；同桌少於 3 場顯示「·」。點格子看詳細。</div>';
+  return secCard('s1','對戰總表（誰剋誰）','可左右滑',t);
+}
+function statMonthly(recs){
+  var mo={},yr={};
+  recs.forEach(function(r){var k=r.date.slice(0,7),y=r.date.slice(0,4);var o=mo[k]||(mo[k]={}),q=yr[y]||(yr[y]={});
+    r.players.forEach(function(p){o[p.name]=(o[p.name]||0)+p.amount;q[p.name]=(q[p.name]||0)+p.amount})});
+  function sortedOf(o){return Object.keys(o).map(function(n){return {n:n,v:o[n]}}).sort(function(a,b){return b.v-a.v})}
+  var keys=Object.keys(mo).sort(),champs=keys.map(function(k){return {k:k,arr:sortedOf(mo[k])}});
+  var cnt={},best={n:'',len:0,end:''},cur={n:'',len:0};
+  champs.forEach(function(c){var w=c.arr[0].n;cnt[w]=(cnt[w]||0)+1;if(cur.n===w)cur.len++;else cur={n:w,len:1};if(cur.len>best.len)best={n:w,len:cur.len,end:c.k}});
+  var medals=['🥇','🥈','🥉'];
+  var h='<div class="chips" style="margin-bottom:10px">'+Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a]}).map(function(n){return '<span class="pchip on" style="--c:'+colorOf(n)+'"><i></i>'+esc(n)+' × '+cnt[n]+'</span>'}).join('')+'</div>';
+  h+='<div class="note" style="margin:0 0 8px">上方＝月冠軍次數。最長連莊：<b style="color:var(--text)">'+esc(best.n)+'</b> 連續 '+best.len+' 個月第一（到 '+best.end.replace('-','/')+'）。</div>';
+  var ys=Object.keys(yr).sort().reverse();
+  h+=ys.map(function(y){var a=sortedOf(yr[y]);return '<div class="rowx"><b style="width:46px">'+y+'</b><span style="flex:1">'+a.slice(0,3).map(function(x,i){return medals[i]+esc(x.n)+' <span class="'+cls(x.v)+'">'+sgn(x.v)+'</span>'}).join('　')+'</span></div>'}).join('');
+  h+='<div class="note" style="margin:10px 0 4px">每月排名（新→舊）</div>';
+  h+=champs.slice().reverse().map(function(c){var a=c.arr,last=a[a.length-1];
+    return '<div class="rowx" style="align-items:flex-start"><b style="width:74px;flex:none">'+c.k.replace('-','/')+'</b><span style="flex:1;line-height:1.6">🥇<b>'+esc(a[0].n)+'</b> <span class="'+cls(a[0].v)+'">'+sgn(a[0].v)+'</span>'+
+      (a[1]?'<span class="mute" style="font-size:12.5px"><br>'+medals[1]+esc(a[1].n)+' '+sgn(a[1].v)+(a[2]?'　'+medals[2]+esc(a[2].n)+' '+sgn(a[2].v):'')+(a.length>3?'　墊底 '+esc(last.n)+' '+sgn(last.v):'')+'</span>':'')+'</span></div>'}).join('');
+  return secCard('s2','月度／年度冠軍榜','',h);
+}
+function statPairs(recs,m){
+  var pair={};
+  recs.forEach(function(r){var ps=r.players,sw=ps.reduce(function(a,p){return a+(p.amount>0?p.amount:0)},0);
+    for(var i=0;i<ps.length;i++)for(var j=i+1;j<ps.length;j++){
+      var a=ps[i].name,b=ps[j].name;if(a>b){var t=a;a=b;b=t}
+      var k=a+'\u0001'+b,o=pair[k]||(pair[k]={a:a,b:b,n:0,s:0});o.n++;o.s+=sw}});
+  var arr=Object.keys(pair).map(function(k){var o=pair[k];return {a:o.a,b:o.b,n:o.n,avg:o.s/o.n}}).filter(function(o){return o.n>=5});
+  var hot=arr.slice().sort(function(a,b){return b.avg-a.avg}).slice(0,6),calm=arr.slice().sort(function(a,b){return a.avg-b.avg}).slice(0,3);
+  var h='<div class="note" style="margin:0 0 6px">每場的「輸贏規模」＝當場所有贏家的贏錢合計；同桌 5 場以上才列入。</div><div class="note" style="margin:0 0 4px;color:var(--text)">🔥 最刺激的組合（輸贏最大）</div>';
+  h+=hot.map(function(o){return '<div class="rowx"><span style="flex:1;font-weight:600">'+esc(o.a)+' ＋ '+esc(o.b)+'<span class="s mute" style="display:block;font-weight:400;font-size:12.5px">同桌 '+o.n+' 場</span></span><b>平均 '+fmt(o.avg)+'</b></div>'}).join('');
+  h+='<div class="note" style="margin:12px 0 4px;color:var(--text)">🍵 最溫和的組合（輸贏最小）</div>';
+  h+=calm.map(function(o){return '<div class="rowx"><span style="flex:1;font-weight:600">'+esc(o.a)+' ＋ '+esc(o.b)+'<span class="s mute" style="display:block;font-weight:400;font-size:12.5px">同桌 '+o.n+' 場</span></span><b>平均 '+fmt(o.avg)+'</b></div>'}).join('');
+  var cand=ranked(m).filter(function(s){return s.games>=10}).sort(function(a,b){return b.games-a.games});
+  if(cand.length){
+    if(!S.stPlayer||!m[S.stPlayer]||m[S.stPlayer].games<10)S.stPlayer=cand[0].name;
+    var me=m[S.stPlayer],base=me.w/me.games,tm={};
+    recs.forEach(function(r){var mine=r.players.find(function(p){return p.name===S.stPlayer});if(!mine)return;
+      r.players.forEach(function(p){if(p.name===S.stPlayer)return;var o=tm[p.name]||(tm[p.name]={n:0,w:0});o.n++;if(mine.amount>0)o.w++})});
+    var rows=Object.keys(tm).map(function(n){var o=tm[n];return {n:n,c:o.n,r:o.w/o.n}}).filter(function(o){return o.c>=5}).map(function(o){o.d=o.r-base;return o}).sort(function(a,b){return b.d-a.d});
+    function line(o){return '<button class="tm" data-p="'+esc(o.n)+'"><span class="n">'+esc(o.n)+'<span class="s" style="display:block;font-weight:400">同桌 '+o.c+' 場</span></span><span class="r"><b class="'+(o.d>0?'pos':'neg')+'">'+(o.d>0?'+':'−')+Math.abs(Math.round(o.d*100))+' 個百分點</b><span class="rate mute">勝率 '+Math.round(o.r*100)+'%</span></span></button>'}
+    h+='<div class="note" style="margin:16px 0 6px;color:var(--text)">👤 某人在場時，我的勝率變化</div><select id="stplayer" style="margin-bottom:8px">'+cand.map(function(s){return '<option value="'+esc(s.name)+'"'+(s.name===S.stPlayer?' selected':'')+'>'+esc(s.name)+'（整體勝率 '+pct(s.w,s.games)+'%）</option>'}).join('')+'</select>';
+    if(rows.length>=2){
+      h+='<div class="note" style="margin:0 0 2px">有他在場，'+esc(S.stPlayer)+' 打得更好：</div>'+rows.filter(function(o){return o.d>0}).slice(0,4).map(line).join('')+
+         '<div class="note" style="margin:10px 0 2px">有他在場，'+esc(S.stPlayer)+' 打得較差：</div>'+rows.slice().reverse().filter(function(o){return o.d<0}).slice(0,4).map(line).join('');
+    }else h+='<div class="empty">同桌 5 場以上的人不夠多</div>';
+    h+='<div class="note">和 '+esc(S.stPlayer)+' 自己整體勝率（'+Math.round(base*100)+'%）相比，在有這個人同桌的場次裡勝率多或少幾個百分點。</div>';
+  }
+  return secCard('s3','同桌組合分析','',h);
+}
+function statRecords(recs,m){
+  var all=[];recs.forEach(function(r){r.players.forEach(function(p){all.push({n:p.name,v:p.amount,d:r.date,f:r.fan})})});
+  function row(o,i){return '<div class="rowx"><b class="mute" style="width:22px">'+(i+1)+'</b><span style="flex:1;font-weight:600">'+esc(o.n)+'<span class="s mute" style="display:block;font-weight:400;font-size:12.5px">'+dfull(o.d)+' · '+o.f+' 將</span></span><b class="'+cls(o.v)+'">'+sgn(o.v)+'</b></div>'}
+  var wins=all.slice().sort(function(a,b){return b.v-a.v}).slice(0,10),loss=all.slice().sort(function(a,b){return a.v-b.v}).slice(0,10);
+  var sw=[],sl=[];
+  Object.keys(m).forEach(function(n){
+    var log=m[n].log,cw=0,cl=0,sw0='',sl0='',bw={len:0},bl={len:0};
+    log.forEach(function(x){
+      if(x.amt>0){if(!cw)sw0=x.r.date;cw++;cl=0;if(cw>bw.len)bw={len:cw,a:sw0,b:x.r.date}}
+      else if(x.amt<0){if(!cl)sl0=x.r.date;cl++;cw=0;if(cl>bl.len)bl={len:cl,a:sl0,b:x.r.date}}
+      else{cw=0;cl=0}});
+    if(bw.len>=3)sw.push({n:n,len:bw.len,a:bw.a,b:bw.b});if(bl.len>=3)sl.push({n:n,len:bl.len,a:bl.a,b:bl.b});});
+  function srow(o,i,g){return '<div class="rowx"><b class="mute" style="width:22px">'+(i+1)+'</b><span style="flex:1;font-weight:600">'+esc(o.n)+'<span class="s mute" style="display:block;font-weight:400;font-size:12.5px">'+dmd(o.a)+' ～ '+dmd(o.b)+'</span></span><b class="'+g+'">'+o.len+' 連'+(g==='pos'?'勝':'敗')+'</b></div>'}
+  var h='<div class="note" style="margin:0 0 4px;color:var(--text)">💰 單場最大贏 Top 10</div>'+wins.map(row).join('')+
+    '<div class="note" style="margin:12px 0 4px;color:var(--text)">💸 單場最大輸 Top 10</div>'+loss.map(row).join('')+
+    '<div class="note" style="margin:12px 0 4px;color:var(--text)">🔥 連勝紀錄 Top 5</div>'+(sw.length?sw.sort(function(a,b){return b.len-a.len}).slice(0,5).map(function(o,i){return srow(o,i,'pos')}).join(''):'<div class="empty" style="padding:8px">還沒有 3 連勝以上</div>')+
+    '<div class="note" style="margin:12px 0 4px;color:var(--text)">🧊 連敗紀錄 Top 5</div>'+(sl.length?sl.sort(function(a,b){return b.len-a.len}).slice(0,5).map(function(o,i){return srow(o,i,'neg')}).join(''):'<div class="empty" style="padding:8px">還沒有 3 連敗以上</div>');
+  return secCard('s4','大贏大輸與連勝連敗紀錄','',h);
+}
+function statStable(m){
+  var arr=Object.keys(m).map(function(k){return m[k]}).filter(function(s){return s.games>=8}).map(function(s){
+    var xs=s.log.map(function(x){return x.amt}),mean=s.total/s.games,v=xs.reduce(function(a,x){return a+(x-mean)*(x-mean)},0)/xs.length,sd=Math.sqrt(v);
+    return {n:s.name,g:s.games,mean:mean,sd:sd,ratio:sd?mean/sd:0}});
+  if(!arr.length)return secCard('s5','個人穩定度','','<div class="empty">場次 8 場以上的人還沒有</div>');
+  var sds=arr.map(function(a){return a.sd}).sort(function(a,b){return a-b}),med=sds[Math.floor(sds.length/2)];
+  arr.sort(function(a,b){return b.ratio-a.ratio});
+  var h='<table><tr><th>名字</th><th>場次</th><th>平均／場</th><th>波動</th><th>比值</th></tr>'+arr.map(function(a){
+    var lab=a.mean>0?(a.sd<=med?'穩定贏家':'高波動贏家'):(a.sd<=med?'穩定微輸':'高波動輸家');
+    return '<tr><td><b>'+esc(a.n)+'</b><div class="s mute" style="font-size:11.5px">'+lab+'</div></td><td>'+a.g+'</td><td class="'+cls(a.mean)+'">'+sgn(a.mean)+'</td><td>'+fmt(a.sd)+'</td><td class="'+cls(a.ratio)+'">'+(a.ratio>=0?'+':'−')+Math.abs(a.ratio).toFixed(2)+'</td></tr>'}).join('')+'</table>'+
+    '<div class="note">波動＝每場輸贏金額的標準差，越大代表起伏越劇烈。比值＝平均 ÷ 波動，越高代表「穩定地贏」。只列場次 8 場以上的人。</div>';
+  return secCard('s5','個人穩定度','平均 ÷ 波動',h);
+}
+function statPredict(recs,m){
+  var latest=recs[recs.length-1].date,cut=addDays(latest,-120);
+  var arr=Object.keys(m).map(function(k){return m[k]}).filter(function(s){return s.games>=5&&s.log[s.log.length-1].r.date>=cut}).map(function(s){
+    var k=Math.min(10,s.games),rec=s.log.slice(-k),rw=rec.filter(function(x){return x.amt>0}).length/k,ov=s.w/s.games,wt=k/20;
+    return {n:s.name,p:ov*(1-wt)+rw*wt,ov:ov,rw:rw,g:s.games}}).sort(function(a,b){return b.p-a.p});
+  if(!arr.length)return secCard('s6','下一場預測','','<div class="empty">資料不夠</div>');
+  var h=arr.map(function(a){var d=a.rw-a.ov,tag=d>=0.1?'<span class="pos">↑ 近期手感好</span>':d<=-0.1?'<span class="neg">↓ 近期偏冷</span>':'<span class="mute">→ 近況持平</span>';
+    return '<button class="tm" data-p="'+esc(a.n)+'" style="flex-wrap:wrap"><span class="n">'+esc(a.n)+'</span><span class="s">'+tag+'</span><span class="r" style="min-width:48px"><b>'+Math.round(a.p*100)+'%</b></span><div class="pbar" style="flex-basis:100%"><i style="width:'+Math.round(a.p*100)+'%"></i></div></button>'}).join('');
+  h+='<div class="note">預估勝率＝整體勝率與最近 10 場勝率各佔一半（場次少時近況佔比較低），只列最近 120 天內有出現、至少 5 場的人。純粹好玩，麻將還是看運氣！</div>';
+  return secCard('s6','下一場誰最可能贏？','純娛樂',h);
+}
+
 /* ───────── 總渲染 ───────── */
 function renderAll(){
   redraws=[];
   var keepDetail=$('#detail').classList.contains('on');
-  if(S.tab==='rank')renderRank();else renderRec();
+  if(S.tab==='rank')renderRank();else if(S.tab==='rec')renderRec();else renderStat();
   if(keepDetail&&dstack.length)renderDetail();
 }
 function setTab(t){S.tab=t;
@@ -674,6 +817,8 @@ document.addEventListener('click',function(ev){
     else if(d.sel==='__none')S.chartSel=[];
     else{var i=S.chartSel.indexOf(d.sel);if(i>=0)S.chartSel.splice(i,1);else S.chartSel.push(d.sel)}
     var sc=$('#trchips').scrollLeft;redraws=[];drawTrend(recs,list);$('#trchips').scrollLeft=sc;return}
+  if(d.jump){var jel=document.getElementById(d.jump);if(jel)jel.scrollIntoView({behavior:'smooth',block:'start'});return}
+  if(d.mxa){var mo=MX[d.mxa+'\u0001'+d.mxb];if(mo)toast(d.mxa+' 對 '+d.mxb+'：'+mo.w+' 勝 '+mo.l+' 負'+(mo.n-mo.w-mo.l?' '+(mo.n-mo.w-mo.l)+' 平':'')+'（同桌 '+mo.n+' 場）');return}
   if(d.hs){S.hSort=d.hs;renderDetail();return}
   if(t.id==='gmore'){S.gLimit+=20;renderDetail();return}
   if(t.id==='rmore'){S.recF.limit+=30;renderRec();return}
@@ -698,7 +843,8 @@ document.addEventListener('click',function(ev){
 document.addEventListener('input',function(ev){
   var t=ev.target;
   if(t.id==='rfrom'||t.id==='rto'){S.range.preset='custom';S.range.from=$('#rfrom').value;S.range.to=$('#rto').value;S.chartSel=null;
-    var f=document.activeElement&&document.activeElement.id;renderRank();return}
+    renderAll();return}
+  if(t.id==='stplayer'){S.stPlayer=t.value;renderStat();return}
   if(t.id==='fplayer'){S.recF.player=t.value;S.recF.limit=30;renderRec();return}
   if(t.id==='fmonth'){S.recF.month=t.value;S.recF.limit=30;renderRec();return}
   if(!E)return;
