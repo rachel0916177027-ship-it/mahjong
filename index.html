@@ -43,8 +43,7 @@ main{max-width:640px;margin:0 auto;padding:14px 16px calc(150px + var(--safeB))}
 .chips{display:flex;gap:8px;flex-wrap:wrap}
 .chip{padding:6px 12px;border-radius:999px;background:#13203A;border:1px solid var(--line);font-size:14px;color:var(--mute);white-space:nowrap}
 .chip.on{background:var(--accent);border-color:var(--accent2);color:#fff}
-.scrollx{overflow-x:auto;display:flex;gap:8px;padding-bottom:4px;-webkit-overflow-scrolling:touch}
-.scrollx::-webkit-scrollbar{display:none}
+.scrollx{display:flex;flex-wrap:wrap;gap:8px}
 .daterow{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:center;margin-top:10px;color:var(--mute)}
 
 /* charts */
@@ -190,7 +189,6 @@ th{color:var(--mute);font-weight:400;font-size:12.5px;border-top:0}
 <main>
   <section class="pane on" id="p-rank"></section>
   <section class="pane" id="p-rec"></section>
-  <section class="pane" id="p-ply"></section>
 </main>
 
 <button id="fab" aria-label="新增戰績">＋</button>
@@ -198,7 +196,6 @@ th{color:var(--mute);font-weight:400;font-size:12.5px;border-top:0}
 <nav><div class="in">
   <button data-tab="rank" class="on"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>排行榜</button>
   <button data-tab="rec"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg>戰績</button>
-  <button data-tab="ply"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.6 3.2-5.5 6.5-5.5s5.9 1.9 6.5 5.5M16 4.8a3.4 3.4 0 0 1 0 6.4M18 14.8c2 .6 3.3 2.2 3.5 5.2"/></svg>參加者</button>
 </div></nav>
 
 <!-- 個人詳情 -->
@@ -566,7 +563,7 @@ function renderRec(){
   if(!list.length)h+='<div class="empty">沒有符合的戰績</div>';
   list.slice(0,F.limit).forEach(function(r){
     var bad=recSum(r)!==0;
-    h+='<div class="card rec"><div class="top"><div><span class="date">'+dfull(r.date)+' '+wdOf(r.date)+'</span>'+(bad?'<span class="warn">⚠ 金額差 '+sgn(recSum(r))+'</span>':'')+'</div><div class="meta">'+r.fan+' 將 · 東錢 '+fmt(r.dongqian)+'</div></div><div class="ps">'+
+    h+='<div class="card rec"><div class="top"><div><span class="date">'+dfull(r.date)+' '+wdOf(r.date)+'</span>'+''+'</div><div class="meta">'+r.fan+' 將 · 東錢 '+fmt(r.dongqian)+'</div></div><div class="ps">'+
       r.players.slice().sort(function(a,b){return b.amount-a.amount}).map(function(p){return '<span class="p">'+esc(p.name)+'<b class="'+cls(p.amount)+'">'+sgn(p.amount)+'</b></span>'}).join('')+
       '</div><div class="acts"><button class="sbtn" data-edit="'+r.id+'">編輯</button><button class="sbtn danger" data-del="'+r.id+'">刪除</button></div></div>';
   });
@@ -574,23 +571,11 @@ function renderRec(){
   $('#p-rec').innerHTML=h;
 }
 
-/* ───────── 參加者 ───────── */
-function renderPly(){
-  var m=calc(S.records);
-  var h='<div class="card"><h2>新增參加者</h2><div class="addrow"><input id="newp" placeholder="輸入名字" maxlength="20" autocomplete="off"><button class="btn" id="addp">新增</button></div></div>';
-  var extra=Object.keys(m).filter(function(n){return S.players.indexOf(n)<0});
-  var all=S.players.concat(extra);
-  h+='<div class="card"><h2>參加者名單<span>'+all.length+' 位</span></h2>'+all.map(function(n){var s=m[n];
-    return '<div class="prow"><div><div class="n">'+esc(n)+'</div><div class="g">'+(s?s.games+' 場 · 累計 '+sgn(s.total):'尚無戰績')+(S.players.indexOf(n)<0?' · 已從名單移除':'')+'</div></div>'+
-      '<div style="display:flex;gap:8px">'+(s?'<button class="sbtn" data-p="'+esc(n)+'">看戰績</button>':'')+(S.players.indexOf(n)>=0?'<button class="sbtn danger" data-rp="'+esc(n)+'">刪除</button>':'')+'</div></div>'}).join('')+'</div>';
-  $('#p-ply').innerHTML=h;
-}
-
 /* ───────── 總渲染 ───────── */
 function renderAll(){
   redraws=[];
   var keepDetail=$('#detail').classList.contains('on');
-  if(S.tab==='rank')renderRank();else if(S.tab==='rec')renderRec();else renderPly();
+  if(S.tab==='rank')renderRank();else renderRec();
   if(keepDetail&&dstack.length)renderDetail();
 }
 function setTab(t){S.tab=t;
@@ -697,11 +682,6 @@ document.addEventListener('click',function(ev){
   if(t.id==='fab'){openEditor(0);return}
   if(d.edit){openEditor(+d.edit);return}
   if(d.del){delRecord(+d.del);return}
-  if(t.id==='addp'){var inp=$('#newp');var n=addPlayerName(inp.value);if(n){inp.value='';renderPly();toast('已新增 '+n)}return}
-  if(d.rp){var nm=d.rp;ask('刪除參加者「'+nm+'」？','只會從選單名單移除，他過去的戰績仍會保留在紀錄與排行榜中。',{ok:'刪除',danger:true}).then(function(ok){
-    if(!ok)return;var prev=S.players.slice();S.players=S.players.filter(function(x){return x!==nm});renderAll();
-    enqueue(function(){return write('removePlayer',nm)}).then(function(d){S.players=d.players;S.records=d.records;renderAll();setSync('','已同步 '+nowHM())})
-     .catch(function(e){S.players=prev;renderAll();toast('刪除失敗：'+e.message,1)})});return}
   // editor
   if(!E)return;
   if(t.id==='ecancel'){closeEditor();return}
@@ -728,7 +708,6 @@ document.addEventListener('input',function(ev){
   if(t.dataset.ab!==undefined){t.value=t.value.replace(/\D/g,'').replace(/^0+(?=\d)/,'');E.rows[+t.dataset.ab].abs=t.value;updTotal()}
 });
 document.addEventListener('keydown',function(ev){
-  if(ev.key==='Enter'&&ev.target.id==='newp')$('#addp').click();
   if(ev.key==='Enter'&&ev.target.id==='enew')$('#eadd').click();
   if(ev.key==='Enter'&&ev.target.id==='di')$('#db').lastChild.click();
 });
